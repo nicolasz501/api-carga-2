@@ -26,19 +26,32 @@ class UsuarioRepository:
 
     # --------------------------------------------------
     # VERIFICAR CONTRASEÑA
+    # BCrypt para hashes válidos y compatibilidad temporal
+    # con registros antiguos almacenados como texto plano.
     # --------------------------------------------------
     @staticmethod
-    def verificar_contrasena(contrasena: str, hash_guardado: str) -> bool:
-        if not contrasena or not hash_guardado:
+    def verificar_contrasena(
+        contrasena: str,
+        contrasena_guardada: str
+    ) -> bool:
+
+        if contrasena is None or contrasena_guardada is None:
             return False
 
-        try:
-            return bcrypt.checkpw(
-                contrasena.encode("utf-8"),
-                hash_guardado.encode("utf-8")
-            )
-        except (ValueError, TypeError):
-            return False
+        guardada = str(contrasena_guardada)
+
+        # Detectar hashes BCrypt.
+        if guardada.startswith(("$2a$", "$2b$", "$2y$")):
+            try:
+                return bcrypt.checkpw(
+                    contrasena.encode("utf-8"),
+                    guardada.encode("utf-8")
+                )
+            except (ValueError, TypeError):
+                return False
+
+        # Compatibilidad temporal con contraseñas antiguas.
+        return contrasena == guardada
 
     # --------------------------------------------------
     # LISTAR USUARIOS
@@ -101,7 +114,8 @@ class UsuarioRepository:
             conn.close()
 
     # --------------------------------------------------
-    # CREAR USUARIO: GUARDA LA CONTRASEÑA CON BCRYPT
+    # CREAR USUARIO
+    # Guarda contraseñas nuevas con BCrypt.
     # --------------------------------------------------
     def crear(self, usuario: Usuario):
         conn = self.db.get_connection()
@@ -159,13 +173,14 @@ class UsuarioRepository:
             conn.close()
 
     # --------------------------------------------------
-    # INICIAR SESIÓN: VERIFICA BCRYPT
+    # INICIAR SESIÓN
     # --------------------------------------------------
     def login(self, correo: str, password: str):
         conn = self.db.get_connection()
 
         try:
             with conn.cursor() as cursor:
+                # Buscar usuario y rol activos.
                 cursor.execute("""
                     SELECT
                         u.id_usuario,
@@ -183,7 +198,7 @@ class UsuarioRepository:
                     FROM usuarios AS u
                     INNER JOIN roles AS r
                         ON r.id_roles = u.id_rol
-                    WHERE LOWER(u.correo) = LOWER(%s)
+                    WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
                       AND u.estado = TRUE
                       AND r.estado = TRUE;
                 """, (correo,))
@@ -199,6 +214,7 @@ class UsuarioRepository:
                 ):
                     return None
 
+                # Obtener módulos y permisos del rol.
                 cursor.execute("""
                     SELECT
                         m.id_modulos,
@@ -211,6 +227,7 @@ class UsuarioRepository:
                     INNER JOIN modulos AS m
                         ON m.id_modulos = mr.id_modulos
                     WHERE mr.id_rol = %s
+                      AND mr.estado = TRUE
                       AND m.estado = TRUE
                     ORDER BY m.id_modulos ASC;
                 """, (usuario["id_rol"],))
@@ -232,7 +249,9 @@ class UsuarioRepository:
                 return {
                     "usuario": {
                         "usuario_id": usuario["id_usuario"],
+                        "id_usuario": usuario["id_usuario"],
                         "rol_id": usuario["id_rol"],
+                        "id_rol": usuario["id_rol"],
                         "primer_nombre": usuario["primer_nombre"],
                         "segundo_nombre": usuario["segundo_nombre"],
                         "primer_apellido": usuario["primer_apellido"],
@@ -243,6 +262,7 @@ class UsuarioRepository:
                     },
                     "rol": {
                         "rol_id": usuario["id_roles"],
+                        "id_roles": usuario["id_roles"],
                         "nombre": usuario["nombre_rol"]
                     },
                     "modulos": lista_modulos
@@ -253,8 +273,7 @@ class UsuarioRepository:
 
     # --------------------------------------------------
     # ACTUALIZAR USUARIO
-    # Si envía una contraseña nueva, genera un hash.
-    # Si no la envía, conserva el hash actual.
+    # Conserva la contraseña si no se envía una nueva.
     # --------------------------------------------------
     def actualizar(self, usuario_id: int, usuario):
         conn = self.db.get_connection()
@@ -266,8 +285,6 @@ class UsuarioRepository:
             if contrasena_nueva is not None:
                 if contrasena_nueva.strip():
                     password_hash = self.generar_hash(contrasena_nueva)
-                else:
-                    password_hash = None
 
             with conn.cursor() as cursor:
                 cursor.execute("""
