@@ -1,3 +1,6 @@
+
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.Asignatura import Asignatura
 
@@ -8,145 +11,177 @@ class AsignaturaRepository:
         self.db = Database()
 
     def obtener_todos(self):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("SELECT * FROM asignaturas ORDER BY asignatura_id ASC;")
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_asignatura,
+                        id_programa,
+                        codigo_asignatura,
+                        nombre_asignatura,
+                        creditos,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM asignatura
+                    ORDER BY id_asignatura ASC;
+                """)
 
-            asignaturas = cursor.fetchall()
-            conn.close()
-
-            return asignaturas
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener asignaturas: {e}")
-            return []
+            print(f"Error al listar asignaturas: {e}")
+            raise
 
-    def obtener_por_id(self, asignatura_id: int):
+        finally:
+            if conn:
+                conn.close()
+
+    def obtener_por_id(self, id_asignatura: int):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("SELECT * FROM asignaturas WHERE asignatura_id = %s;", (asignatura_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_asignatura,
+                        id_programa,
+                        codigo_asignatura,
+                        nombre_asignatura,
+                        creditos,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM asignatura
+                    WHERE id_asignatura = %s;
+                """, (id_asignatura,))
 
-            asignatura = cursor.fetchone()
-            conn.close()
-
-            return asignatura
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener asignatura: {e}")
-            return None
+            print(f"Error al consultar asignatura: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()
 
     def crear(self, asignatura: Asignatura):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO asignaturas
-                (
-                    programa_id,
-                    codigo_asignatura,
-                    nombres_asignaturas,
-                    creditos,
-                    estado
-                )
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING asignatura_id;
-            """, (
-                asignatura.programa_id,
-                asignatura.codigo_asignatura,
-                asignatura.nombres_asignaturas,
-                asignatura.creditos,
-                asignatura.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    INSERT INTO asignatura (
+                        id_programa,
+                        codigo_asignatura,
+                        nombre_asignatura,
+                        creditos,
+                        estado
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id_asignatura;
+                """, (
+                    asignatura.id_programa,
+                    asignatura.codigo_asignatura,
+                    asignatura.nombre_asignatura,
+                    asignatura.creditos,
+                    asignatura.estado
+                ))
 
-            nuevo_id = cursor.fetchone()["asignatura_id"]
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return nuevo_id
+                return fila["id_asignatura"]
 
         except Exception as e:
+            if conn:
+                conn.rollback()
+
             print(f"Error al crear asignatura: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return None
-
-    def eliminar(self, asignatura_id: int):
+    def actualizar(self, id_asignatura: int, asignatura: Asignatura):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM asignaturas
-                WHERE asignatura_id = %s
-                RETURNING asignatura_id;
-            """, (asignatura_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    UPDATE asignatura
+                    SET
+                        id_programa = %s,
+                        codigo_asignatura = %s,
+                        nombre_asignatura = %s,
+                        creditos = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_asignatura = %s
+                    RETURNING id_asignatura;
+                """, (
+                    asignatura.id_programa,
+                    asignatura.codigo_asignatura,
+                    asignatura.nombre_asignatura,
+                    asignatura.creditos,
+                    asignatura.estado,
+                    id_asignatura
+                ))
 
-            eliminado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return eliminado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al eliminar asignatura: {e}")
-
             if conn:
                 conn.rollback()
-                conn.close()
 
-            return False
-
-    def actualizar(self, asignatura_id: int, asignatura: Asignatura):
-        conn = None
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE asignaturas
-                SET programa_id = %s,
-                    codigo_asignatura = %s,
-                    nombres_asignaturas = %s,
-                    creditos = %s,
-                    estado = %s
-                WHERE asignatura_id = %s
-                RETURNING asignatura_id;
-            """, (
-                asignatura.programa_id,
-                asignatura.codigo_asignatura,
-                asignatura.nombres_asignaturas,
-                asignatura.creditos,
-                asignatura.estado,
-                asignatura_id
-            ))
-
-            actualizado = cursor.fetchone()
-
-            conn.commit()
-            conn.close()
-
-            return actualizado is not None
-
-        except Exception as e:
             print(f"Error al actualizar asignatura: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return False
+    def eliminar(self, id_asignatura: int):
+        conn = None
+
+        try:
+            conn = self.db.get_connection()
+
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM asignatura
+                    WHERE id_asignatura = %s
+                    RETURNING id_asignatura;
+                """, (id_asignatura,))
+
+                fila = cursor.fetchone()
+                conn.commit()
+
+                return fila is not None
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+
+            print(f"Error al eliminar asignatura: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()

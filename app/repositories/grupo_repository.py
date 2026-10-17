@@ -60,14 +60,16 @@ class GrupoRepository:
                     asignaturas_id,
                     periodos_id,
                     nombre_grupos,
+                    capacidad,
                     estado
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING grupos_id;
             """, (
                 grupo.asignaturas_id,
                 grupo.periodos_id,
                 grupo.nombre_grupos,
+                grupo.capacidad,  # <-- Agregado
                 grupo.estado
             ))
 
@@ -128,13 +130,16 @@ class GrupoRepository:
                 SET asignaturas_id = %s,
                     periodos_id = %s,
                     nombre_grupos = %s,
-                    estado = %s
+                    capacidad = %s,
+                    estado = %s,
+                    updated_at = NOW()
                 WHERE grupos_id = %s
                 RETURNING grupos_id;
             """, (
                 grupo.asignaturas_id,
                 grupo.periodos_id,
                 grupo.nombre_grupos,
+                grupo.capacidad,  # <-- Agregado
                 grupo.estado,
                 grupos_id
             ))

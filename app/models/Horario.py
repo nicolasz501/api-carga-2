@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, time
+from datetime import  time
 
 
 class Horario(BaseModel):
@@ -10,5 +10,4 @@ class Horario(BaseModel):
     hora_inicio: time
     hora_finalizar: time
     estado: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+   

@@ -8,18 +8,26 @@ class PeriodoAcademicoRepository:
         self.db = Database()
 
     def obtener_todos(self):
+        conn = None
+
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT *
+                SELECT
+                    periodo_id,
+                    codigo_periodo,
+                    fecha_inicio,
+                    fecha_finalizar,
+                    estado,
+                    created_at,
+                    updated_at
                 FROM periodos_academicos
                 ORDER BY periodo_id ASC;
             """)
 
             periodos = cursor.fetchall()
-            conn.close()
 
             return periodos
 
@@ -27,25 +35,42 @@ class PeriodoAcademicoRepository:
             print(f"Error al obtener períodos: {e}")
             return []
 
+        finally:
+            if conn:
+                conn.close()
+
     def obtener_por_id(self, periodo_id: int):
+        conn = None
+
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT *
+                SELECT
+                    periodo_id,
+                    codigo_periodo,
+                    fecha_inicio,
+                    fecha_finalizar,
+                    estado,
+                    created_at,
+                    updated_at
                 FROM periodos_academicos
                 WHERE periodo_id = %s;
             """, (periodo_id,))
 
             periodo = cursor.fetchone()
-            conn.close()
 
             return periodo
 
         except Exception as e:
             print(f"Error al obtener período: {e}")
             return None
+
+        finally:
+            if conn:
+                conn.close()
+
 
     def crear(self, periodo: PeriodoAcademico):
         conn = None
@@ -71,21 +96,75 @@ class PeriodoAcademicoRepository:
                 periodo.estado
             ))
 
-            nuevo_id = cursor.fetchone()["periodo_id"]
+            resultado = cursor.fetchone()
 
             conn.commit()
-            conn.close()
 
-            return nuevo_id
+            if resultado:
+                return resultado["periodo_id"]
+
+            return None
 
         except Exception as e:
             print(f"Error al crear período: {e}")
 
             if conn:
                 conn.rollback()
-                conn.close()
 
             return None
+
+        finally:
+            if conn:
+                conn.close()
+
+
+    def actualizar(
+        self,
+        periodo_id: int,
+        periodo: PeriodoAcademico
+    ):
+        conn = None
+
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE periodos_academicos
+                SET
+                    codigo_periodo = %s,
+                    fecha_inicio = %s,
+                    fecha_finalizar = %s,
+                    estado = %s,
+                    updated_at = NOW()
+                WHERE periodo_id = %s
+                RETURNING periodo_id;
+            """, (
+                periodo.codigo_periodo,
+                periodo.fecha_inicio,
+                periodo.fecha_finalizar,
+                periodo.estado,
+                periodo_id
+            ))
+
+            actualizado = cursor.fetchone()
+
+            conn.commit()
+
+            return actualizado is not None
+
+        except Exception as e:
+            print(f"Error al actualizar período: {e}")
+
+            if conn:
+                conn.rollback()
+
+            return False
+
+        finally:
+            if conn:
+                conn.close()
+
 
     def eliminar(self, periodo_id: int):
         conn = None
@@ -103,7 +182,6 @@ class PeriodoAcademicoRepository:
             eliminado = cursor.fetchone()
 
             conn.commit()
-            conn.close()
 
             return eliminado is not None
 
@@ -112,45 +190,9 @@ class PeriodoAcademicoRepository:
 
             if conn:
                 conn.rollback()
-                conn.close()
 
             return False
 
-    def actualizar(self, periodo_id: int, periodo: PeriodoAcademico):
-        conn = None
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE periodos_academicos
-                SET codigo_periodo = %s,
-                    fecha_inicio = %s,
-                    fecha_finalizar = %s,
-                    estado = %s
-                WHERE periodo_id = %s
-                RETURNING periodo_id;
-            """, (
-                periodo.codigo_periodo,
-                periodo.fecha_inicio,
-                periodo.fecha_finalizar,
-                periodo.estado,
-                periodo_id
-            ))
-
-            actualizado = cursor.fetchone()
-
-            conn.commit()
-            conn.close()
-
-            return actualizado is not None
-
-        except Exception as e:
-            print(f"Error al actualizar período: {e}")
-
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
-
-            return False

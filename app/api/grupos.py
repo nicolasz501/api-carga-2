@@ -1,12 +1,20 @@
 from fastapi import APIRouter, HTTPException
-
-from app.models.Grupo import Grupo
+from app.models.Grupo import Grupo  
 from app.repositories.grupo_repository import GrupoRepository
 
-
-router = APIRouter(prefix="/grupos",tags=["Gestión de Grupos"])
+router = APIRouter(prefix="/grupos", tags=["Gestión de Grupos"])
 repo = GrupoRepository()
 
+
+
+@router.put("/{grupos_id}")
+def actualizar_grupo(grupos_id: int, grupo: Grupo):
+    exito = repo.actualizar(grupos_id, grupo)
+
+    if not exito:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+
+    return {"mensaje": "Grupo actualizado correctamente"}
 
 @router.get("/")
 def listar_grupos():
@@ -39,13 +47,3 @@ def eliminar_grupo(grupos_id: int):
 
     return { "mensaje": "Grupo eliminado correctamente"}
 
-
-@router.put("/{grupos_id}")
-def actualizar_grupo(grupos_id: int,grupo: Grupo):
-    exito = repo.actualizar(grupos_id,grupo)
-
-    if not exito:
-        raise HTTPException(status_code=404,detail="Grupo no encontrado")
-
-    return {"mensaje": "Grupo actualizado correctamente"}
-    

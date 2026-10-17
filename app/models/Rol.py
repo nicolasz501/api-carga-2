@@ -1,11 +1,11 @@
-from pydantic import BaseModel
+
 from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict
 
 
 class Rol(BaseModel):
-    rol_id: Optional[int] = None
+    model_config = ConfigDict(extra="ignore")
+
+    id_roles: Optional[int] = None
     nombre_rol: str
     estado: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None

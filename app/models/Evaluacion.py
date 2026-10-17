@@ -11,6 +11,5 @@ class Evaluacion(BaseModel):
     titulo: Optional[str] = None
     fecha_envio: Optional[datetime] = None
     estado: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    
     

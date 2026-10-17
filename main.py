@@ -1,55 +1,68 @@
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import roles
-from app.api import modulos
-from app.api import modulos_rol
-from app.api import facultades
-from app.api import usuarios
-from app.api import periodos_academicos
-from app.api import programas_academicos
-from app.api import asignaturas
-from app.api import grupos
-from app.api import carga_docente
-from app.api import horarios
-from app.api import evaluaciones
-from app.api import preguntas
-from app.api import respuestas
-
-
-# =====================================================
-# CONFIGURACIÓN PRINCIPAL DE LA API
-# =====================================================
-
-app = FastAPI(
-    title="API Carga Docente",
-    description=(
-        "Backend modular para la gestión de carga docente, "
-        "estructura académica y evaluación del desempeño "
-        "utilizando FastAPI y PostgreSQL."
-    ),
-    version="1.0.0"
+from app.api import (
+    roles,
+    modulos,
+    modulos_rol,
+    facultades,
+    usuarios,
+    periodos_academicos,
+    programas_academicos,
+    asignaturas,
+    grupos,
+    carga_docente,
+    horarios,
+    evaluaciones,
+    preguntas,
+    respuestas,
 )
 
 
-# =====================================================
-# CONFIGURACIÓN CORS
-# Permite solicitudes desde el frontend SvelteKit.
-# =====================================================
+app = FastAPI(
+    title="API Carga docente",
+    description=(
+        "Backend modular para monitoreo académico "
+        "usando FastAPI y PostgreSQL puro"
+    ),
+    version="1.0.0",
+)
+
+
+ALLOWED_ORIGINS_DEFAULT = [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "https://cargadocente.netlify.app",
+]
+
+
+origins_env = os.getenv("ALLOWED_ORIGINS", "")
+
+extra_origins = [
+    origin.strip().rstrip("/")
+    for origin in origins_env.split(",")
+    if origin.strip()
+]
+
+
+origins = list(
+    dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins)
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
-# =====================================================
-# REGISTRO DE RUTAS
-# =====================================================
 
 app.include_router(roles.router)
 app.include_router(modulos.router)
@@ -67,14 +80,10 @@ app.include_router(preguntas.router)
 app.include_router(respuestas.router)
 
 
-# =====================================================
-# RUTA PRINCIPAL
-# =====================================================
-
-@app.get("/")
+@app.get("/", tags=["Health"])
 def estado_api():
     return {
-        "mensaje": "La API de Carga Docente se encuentra en línea y funcional",
-        "estado": "activo",
-        "version": "1.0.0"
+        "status": "ok",
+        "mensaje": "La API de monitoreo se encuentra en línea y funcional",
+        "version": app.version,
     }

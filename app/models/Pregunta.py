@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+
 
 
 class Pregunta(BaseModel):
@@ -9,5 +9,3 @@ class Pregunta(BaseModel):
     texto_pregunta: str
     numero_orden: int
     estado: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None

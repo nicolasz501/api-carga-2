@@ -1,14 +1,12 @@
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
 
 
 class Asignatura(BaseModel):
-    asignatura_id: Optional[int] = None
-    programa_id: int
+    id_asignatura: Optional[int] = None
+    id_programa: int
     codigo_asignatura: str
-    nombres_asignaturas: str
-    creditos: int
+    nombre_asignatura: str
+    creditos: int = Field(gt=0)
     estado: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
