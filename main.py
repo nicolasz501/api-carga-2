@@ -33,14 +33,18 @@ app = FastAPI(
 )
 
 
+# --------------------------------------------------
+# CONFIGURACIÓN CORS
+# --------------------------------------------------
+
 ALLOWED_ORIGINS_DEFAULT = [
     "http://localhost:5173",
-    "http://localhost:4173",
     "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
     "http://localhost:3000",
     "https://cargadocente.netlify.app",
 ]
-
 
 origins_env = os.getenv("ALLOWED_ORIGINS", "")
 
@@ -54,17 +58,19 @@ origins = list(
     dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins)
 )
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
-# Registrar módulos de la API
+# --------------------------------------------------
+# REGISTRO DE RUTAS
+# --------------------------------------------------
+
 app.include_router(roles.router)
 app.include_router(modulos.router)
 app.include_router(modulos_rol.router)
@@ -81,6 +87,10 @@ app.include_router(preguntas.router)
 app.include_router(pregunta_evaluacion.router)
 app.include_router(respuestas.router)
 
+
+# --------------------------------------------------
+# COMPROBACIÓN DE ESTADO
+# --------------------------------------------------
 
 @app.get("/", tags=["Health"])
 def estado_api():
