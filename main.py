@@ -18,6 +18,7 @@ from app.api import (
     horarios,
     evaluaciones,
     preguntas,
+    pregunta_evaluacion,
     respuestas,
 )
 
@@ -49,10 +50,10 @@ extra_origins = [
     if origin.strip()
 ]
 
-
 origins = list(
     dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins)
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,7 +64,7 @@ app.add_middleware(
 )
 
 
-
+# Registrar módulos de la API
 app.include_router(roles.router)
 app.include_router(modulos.router)
 app.include_router(modulos_rol.router)
@@ -77,6 +78,7 @@ app.include_router(carga_docente.router)
 app.include_router(horarios.router)
 app.include_router(evaluaciones.router)
 app.include_router(preguntas.router)
+app.include_router(pregunta_evaluacion.router)
 app.include_router(respuestas.router)
 
 
