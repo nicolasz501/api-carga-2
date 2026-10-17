@@ -1,6 +1,7 @@
+
 fastapi
 uvicorn
 psycopg2-binary
 python-dotenv
 bcrypt
-EmailStr
+email-validator
