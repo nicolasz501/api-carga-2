@@ -1,7 +1,7 @@
 
 from psycopg2.extras import RealDictCursor
 
-from app.database import Database
+from app.core.database import Database
 
 
 class PreguntaEvaluacionRepository:
