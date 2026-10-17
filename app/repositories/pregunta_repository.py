@@ -1,3 +1,6 @@
+
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.Pregunta import Pregunta
 
@@ -8,149 +11,167 @@ class PreguntaRepository:
         self.db = Database()
 
     def obtener_todos(self):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM preguntas
-                ORDER BY pregunta_id ASC;
-            """)
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_preguntas,
+                        texto_preguntas,
+                        numero_orden,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM preguntas
+                    ORDER BY
+                        numero_orden ASC NULLS LAST,
+                        id_preguntas ASC;
+                """)
 
-            preguntas = cursor.fetchall()
-            conn.close()
-
-            return preguntas
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener preguntas: {e}")
-            return []
+            print(f"Error al listar preguntas: {e}")
+            raise
 
-    def obtener_por_id(self, pregunta_id: int):
+        finally:
+            if conn:
+                conn.close()
+
+    def obtener_por_id(self, id_preguntas: int):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM preguntas
-                WHERE pregunta_id = %s;
-            """, (pregunta_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_preguntas,
+                        texto_preguntas,
+                        numero_orden,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM preguntas
+                    WHERE id_preguntas = %s;
+                """, (id_preguntas,))
 
-            pregunta = cursor.fetchone()
-            conn.close()
-
-            return pregunta
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener pregunta: {e}")
-            return None
+            print(f"Error al consultar pregunta: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()
 
     def crear(self, pregunta: Pregunta):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO preguntas
-                (
-                    evaluacion_id,
-                    texto_pregunta,
-                    numero_orden,
-                    estado
-                )
-                VALUES (%s, %s, %s, %s)
-                RETURNING pregunta_id;
-            """, (
-                pregunta.evaluacion_id,
-                pregunta.texto_pregunta,
-                pregunta.numero_orden,
-                pregunta.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    INSERT INTO preguntas (
+                        texto_preguntas,
+                        numero_orden,
+                        estado
+                    )
+                    VALUES (%s, %s, %s)
+                    RETURNING id_preguntas;
+                """, (
+                    pregunta.texto_preguntas,
+                    pregunta.numero_orden,
+                    pregunta.estado
+                ))
 
-            nuevo_id = cursor.fetchone()["pregunta_id"]
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return nuevo_id
+                return fila["id_preguntas"]
 
         except Exception as e:
+            if conn:
+                conn.rollback()
+
             print(f"Error al crear pregunta: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return None
-
-    def eliminar(self, pregunta_id: int):
+    def actualizar(self, id_preguntas: int, pregunta: Pregunta):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM preguntas
-                WHERE pregunta_id = %s
-                RETURNING pregunta_id;
-            """, (pregunta_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    UPDATE preguntas
+                    SET
+                        texto_preguntas = %s,
+                        numero_orden = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_preguntas = %s
+                    RETURNING id_preguntas;
+                """, (
+                    pregunta.texto_preguntas,
+                    pregunta.numero_orden,
+                    pregunta.estado,
+                    id_preguntas
+                ))
 
-            eliminado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return eliminado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al eliminar pregunta: {e}")
-
             if conn:
                 conn.rollback()
-                conn.close()
 
-            return False
-
-    def actualizar(self, pregunta_id: int, pregunta: Pregunta):
-        conn = None
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE preguntas
-                SET evaluacion_id = %s,
-                    texto_pregunta = %s,
-                    numero_orden = %s,
-                    estado = %s
-                WHERE pregunta_id = %s
-                RETURNING pregunta_id;
-            """, (
-                pregunta.evaluacion_id,
-                pregunta.texto_pregunta,
-                pregunta.numero_orden,
-                pregunta.estado,
-                pregunta_id
-            ))
-
-            actualizado = cursor.fetchone()
-
-            conn.commit()
-            conn.close()
-
-            return actualizado is not None
-
-        except Exception as e:
             print(f"Error al actualizar pregunta: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return False
+    def eliminar(self, id_preguntas: int):
+        conn = None
+
+        try:
+            conn = self.db.get_connection()
+
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM preguntas
+                    WHERE id_preguntas = %s
+                    RETURNING id_preguntas;
+                """, (id_preguntas,))
+
+                fila = cursor.fetchone()
+                conn.commit()
+
+                return fila is not None
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+
+            print(f"Error al eliminar pregunta: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()

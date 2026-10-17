@@ -1,11 +1,10 @@
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
-
 class Pregunta(BaseModel):
-    pregunta_id: Optional[int] = None
-    evaluacion_id: int
-    texto_pregunta: str
-    numero_orden: int
+    id_preguntas: Optional[int] = None
+    texto_preguntas: str = Field(min_length=1)
+    numero_orden: Optional[int] = Field(default=None, ge=1)
     estado: bool = True

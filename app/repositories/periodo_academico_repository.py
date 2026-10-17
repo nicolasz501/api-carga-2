@@ -1,3 +1,6 @@
+
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.PeriodoAcademico import PeriodoAcademico
 
@@ -12,186 +15,170 @@ class PeriodoAcademicoRepository:
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT
-                    periodo_id,
-                    codigo_periodo,
-                    fecha_inicio,
-                    fecha_finalizar,
-                    estado,
-                    created_at,
-                    updated_at
-                FROM periodos_academicos
-                ORDER BY periodo_id ASC;
-            """)
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_periodos_academicos,
+                        codigo_periodo,
+                        fecha_inicio,
+                        fecha_finalizar,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM periodos_academicos
+                    ORDER BY id_periodos_academicos ASC;
+                """)
 
-            periodos = cursor.fetchall()
-
-            return periodos
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener períodos: {e}")
-            return []
+            print(f"Error al obtener períodos académicos: {e}")
+            raise
 
         finally:
             if conn:
                 conn.close()
 
-    def obtener_por_id(self, periodo_id: int):
+    def obtener_por_id(self, id_periodos_academicos: int):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT
-                    periodo_id,
-                    codigo_periodo,
-                    fecha_inicio,
-                    fecha_finalizar,
-                    estado,
-                    created_at,
-                    updated_at
-                FROM periodos_academicos
-                WHERE periodo_id = %s;
-            """, (periodo_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_periodos_academicos,
+                        codigo_periodo,
+                        fecha_inicio,
+                        fecha_finalizar,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM periodos_academicos
+                    WHERE id_periodos_academicos = %s;
+                """, (id_periodos_academicos,))
 
-            periodo = cursor.fetchone()
-
-            return periodo
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener período: {e}")
-            return None
+            print(f"Error al obtener período académico: {e}")
+            raise
 
         finally:
             if conn:
                 conn.close()
-
 
     def crear(self, periodo: PeriodoAcademico):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO periodos_academicos
-                (
-                    codigo_periodo,
-                    fecha_inicio,
-                    fecha_finalizar,
-                    estado
-                )
-                VALUES (%s, %s, %s, %s)
-                RETURNING periodo_id;
-            """, (
-                periodo.codigo_periodo,
-                periodo.fecha_inicio,
-                periodo.fecha_finalizar,
-                periodo.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    INSERT INTO periodos_academicos (
+                        codigo_periodo,
+                        fecha_inicio,
+                        fecha_finalizar,
+                        estado
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id_periodos_academicos;
+                """, (
+                    periodo.codigo_periodo,
+                    periodo.fecha_inicio,
+                    periodo.fecha_finalizar,
+                    periodo.estado
+                ))
 
-            resultado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-
-            if resultado:
-                return resultado["periodo_id"]
-
-            return None
+                return fila["id_periodos_academicos"]
 
         except Exception as e:
-            print(f"Error al crear período: {e}")
-
             if conn:
                 conn.rollback()
 
-            return None
+            print(f"Error al crear período académico: {e}")
+            raise
 
         finally:
             if conn:
                 conn.close()
 
-
     def actualizar(
         self,
-        periodo_id: int,
+        id_periodos_academicos: int,
         periodo: PeriodoAcademico
     ):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                UPDATE periodos_academicos
-                SET
-                    codigo_periodo = %s,
-                    fecha_inicio = %s,
-                    fecha_finalizar = %s,
-                    estado = %s,
-                    updated_at = NOW()
-                WHERE periodo_id = %s
-                RETURNING periodo_id;
-            """, (
-                periodo.codigo_periodo,
-                periodo.fecha_inicio,
-                periodo.fecha_finalizar,
-                periodo.estado,
-                periodo_id
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    UPDATE periodos_academicos
+                    SET
+                        codigo_periodo = %s,
+                        fecha_inicio = %s,
+                        fecha_finalizar = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_periodos_academicos = %s
+                    RETURNING id_periodos_academicos;
+                """, (
+                    periodo.codigo_periodo,
+                    periodo.fecha_inicio,
+                    periodo.fecha_finalizar,
+                    periodo.estado,
+                    id_periodos_academicos
+                ))
 
-            actualizado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-
-            return actualizado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al actualizar período: {e}")
-
             if conn:
                 conn.rollback()
 
-            return False
+            print(f"Error al actualizar período académico: {e}")
+            raise
 
         finally:
             if conn:
                 conn.close()
 
-
-    def eliminar(self, periodo_id: int):
+    def eliminar(self, id_periodos_academicos: int):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM periodos_academicos
-                WHERE periodo_id = %s
-                RETURNING periodo_id;
-            """, (periodo_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM periodos_academicos
+                    WHERE id_periodos_academicos = %s
+                    RETURNING id_periodos_academicos;
+                """, (id_periodos_academicos,))
 
-            eliminado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-
-            return eliminado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al eliminar período: {e}")
-
             if conn:
                 conn.rollback()
 
-            return False
+            print(f"Error al eliminar período académico: {e}")
+            raise
 
         finally:
             if conn:

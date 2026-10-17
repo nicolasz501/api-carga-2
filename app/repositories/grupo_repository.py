@@ -1,3 +1,6 @@
+
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.Grupo import Grupo
 
@@ -8,154 +11,165 @@ class GrupoRepository:
         self.db = Database()
 
     def obtener_todos(self):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM grupos
-                ORDER BY grupos_id ASC;
-            """)
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_grupo,
+                        id_asignatura,
+                        nombre_grupos,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM grupo
+                    ORDER BY id_grupo ASC;
+                """)
 
-            grupos = cursor.fetchall()
-            conn.close()
-
-            return grupos
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener grupos: {e}")
-            return []
+            print(f"Error al listar grupos: {e}")
+            raise
 
-    def obtener_por_id(self, grupos_id: int):
+        finally:
+            if conn:
+                conn.close()
+
+    def obtener_por_id(self, id_grupo: int):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM grupos
-                WHERE grupos_id = %s;
-            """, (grupos_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_grupo,
+                        id_asignatura,
+                        nombre_grupos,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM grupo
+                    WHERE id_grupo = %s;
+                """, (id_grupo,))
 
-            grupo = cursor.fetchone()
-            conn.close()
-
-            return grupo
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener grupo: {e}")
-            return None
+            print(f"Error al consultar grupo: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()
 
     def crear(self, grupo: Grupo):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO grupos
-                (
-                    asignaturas_id,
-                    periodos_id,
-                    nombre_grupos,
-                    capacidad,
-                    estado
-                )
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING grupos_id;
-            """, (
-                grupo.asignaturas_id,
-                grupo.periodos_id,
-                grupo.nombre_grupos,
-                grupo.capacidad,  # <-- Agregado
-                grupo.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    INSERT INTO grupo (
+                        id_asignatura,
+                        nombre_grupos,
+                        estado
+                    )
+                    VALUES (%s, %s, %s)
+                    RETURNING id_grupo;
+                """, (
+                    grupo.id_asignatura,
+                    grupo.nombre_grupos,
+                    grupo.estado
+                ))
 
-            nuevo_id = cursor.fetchone()["grupos_id"]
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return nuevo_id
+                return fila["id_grupo"]
 
         except Exception as e:
+            if conn:
+                conn.rollback()
+
             print(f"Error al crear grupo: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return None
-
-    def eliminar(self, grupos_id: int):
+    def actualizar(self, id_grupo: int, grupo: Grupo):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM grupos
-                WHERE grupos_id = %s
-                RETURNING grupos_id;
-            """, (grupos_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    UPDATE grupo
+                    SET
+                        id_asignatura = %s,
+                        nombre_grupos = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_grupo = %s
+                    RETURNING id_grupo;
+                """, (
+                    grupo.id_asignatura,
+                    grupo.nombre_grupos,
+                    grupo.estado,
+                    id_grupo
+                ))
 
-            eliminado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return eliminado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al eliminar grupo: {e}")
-
             if conn:
                 conn.rollback()
-                conn.close()
 
-            return False
-
-    def actualizar(self, grupos_id: int, grupo: Grupo):
-        conn = None
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE grupos
-                SET asignaturas_id = %s,
-                    periodos_id = %s,
-                    nombre_grupos = %s,
-                    capacidad = %s,
-                    estado = %s,
-                    updated_at = NOW()
-                WHERE grupos_id = %s
-                RETURNING grupos_id;
-            """, (
-                grupo.asignaturas_id,
-                grupo.periodos_id,
-                grupo.nombre_grupos,
-                grupo.capacidad,  # <-- Agregado
-                grupo.estado,
-                grupos_id
-            ))
-
-            actualizado = cursor.fetchone()
-
-            conn.commit()
-            conn.close()
-
-            return actualizado is not None
-
-        except Exception as e:
             print(f"Error al actualizar grupo: {e}")
+            raise
 
+        finally:
             if conn:
-                conn.rollback()
                 conn.close()
 
-            return False
+    def eliminar(self, id_grupo: int):
+        conn = None
+
+        try:
+            conn = self.db.get_connection()
+
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM grupo
+                    WHERE id_grupo = %s
+                    RETURNING id_grupo;
+                """, (id_grupo,))
+
+                fila = cursor.fetchone()
+                conn.commit()
+
+                return fila is not None
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+
+            print(f"Error al eliminar grupo: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()

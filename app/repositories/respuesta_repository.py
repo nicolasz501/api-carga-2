@@ -1,4 +1,6 @@
 
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.Respuesta import Respuesta
 
@@ -13,94 +15,101 @@ class RespuestaRepository:
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT
-                    r.respuesta_id,
-                    r.pregunta_id,
-                    r.usuario_id,
-                    r.puntaje,
-                    r.comentario,
-                    r.estado,
-                    r.created_at,
-                    r.updated_at,
-                    CONCAT_WS(
-                        ' ',
-                        u.primer_nombre,
-                        u.segundo_nombre,
-                        u.primer_apellido,
-                        u.segundo_apellido
-                    ) AS nombre_evaluador,
-                    u.correo,
-                    p.texto_pregunta AS pregunta,
-                    p.evaluacion_id,
-                    e.titulo AS evaluacion,
-                    e.tipo_evaluacion
-                FROM respuestas r
-                LEFT JOIN usuarios u
-                    ON u.usuario_id = r.usuario_id
-                LEFT JOIN preguntas p
-                    ON p.pregunta_id = r.pregunta_id
-                LEFT JOIN evaluaciones e
-                    ON e.evaluacion_id = p.evaluacion_id
-                ORDER BY r.respuesta_id ASC;
-            """)
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        r.id_respuestas,
+                        r.id_pregunta_evaluacion,
+                        r.id_usuario,
+                        r.puntaje,
+                        r.comentario,
+                        r.estado,
+                        r.created_at,
+                        r.updated_at,
+                        CONCAT_WS(
+                            ' ',
+                            u.primer_nombre,
+                            u.segundo_nombre,
+                            u.primer_apellido,
+                            u.segundo_apellido
+                        ) AS nombre_evaluador,
+                        u.correo,
+                        p.texto_preguntas AS pregunta,
+                        pe.id_evaluacion,
+                        e.titulo AS evaluacion,
+                        e.tipo_evaluacion
+                    FROM respuestas r
+                    LEFT JOIN usuarios u
+                        ON u.id_usuario = r.id_usuario
+                    LEFT JOIN preguntas_evaluaciones pe
+                        ON pe.id_pregunta_evaluacion =
+                           r.id_pregunta_evaluacion
+                    LEFT JOIN preguntas p
+                        ON p.id_preguntas = pe.id_preguntas
+                    LEFT JOIN evaluaciones e
+                        ON e.id_evaluaciones = pe.id_evaluacion
+                    ORDER BY r.id_respuestas ASC;
+                """)
 
-            return cursor.fetchall()
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener respuestas: {e}")
-            return []
+            print(f"Error al listar respuestas: {e}")
+            raise
 
         finally:
             if conn:
                 conn.close()
 
-    def obtener_por_id(self, respuesta_id: int):
+    def obtener_por_id(self, id_respuestas: int):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT
-                    r.respuesta_id,
-                    r.pregunta_id,
-                    r.usuario_id,
-                    r.puntaje,
-                    r.comentario,
-                    r.estado,
-                    r.created_at,
-                    r.updated_at,
-                    CONCAT_WS(
-                        ' ',
-                        u.primer_nombre,
-                        u.segundo_nombre,
-                        u.primer_apellido,
-                        u.segundo_apellido
-                    ) AS nombre_evaluador,
-                    u.correo,
-                    p.texto_pregunta AS pregunta,
-                    p.evaluacion_id,
-                    e.titulo AS evaluacion,
-                    e.tipo_evaluacion
-                FROM respuestas r
-                LEFT JOIN usuarios u
-                    ON u.usuario_id = r.usuario_id
-                LEFT JOIN preguntas p
-                    ON p.pregunta_id = r.pregunta_id
-                LEFT JOIN evaluaciones e
-                    ON e.evaluacion_id = p.evaluacion_id
-                WHERE r.respuesta_id = %s;
-            """, (respuesta_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        r.id_respuestas,
+                        r.id_pregunta_evaluacion,
+                        r.id_usuario,
+                        r.puntaje,
+                        r.comentario,
+                        r.estado,
+                        r.created_at,
+                        r.updated_at,
+                        CONCAT_WS(
+                            ' ',
+                            u.primer_nombre,
+                            u.segundo_nombre,
+                            u.primer_apellido,
+                            u.segundo_apellido
+                        ) AS nombre_evaluador,
+                        u.correo,
+                        p.texto_preguntas AS pregunta,
+                        pe.id_evaluacion,
+                        e.titulo AS evaluacion,
+                        e.tipo_evaluacion
+                    FROM respuestas r
+                    LEFT JOIN usuarios u
+                        ON u.id_usuario = r.id_usuario
+                    LEFT JOIN preguntas_evaluaciones pe
+                        ON pe.id_pregunta_evaluacion =
+                           r.id_pregunta_evaluacion
+                    LEFT JOIN preguntas p
+                        ON p.id_preguntas = pe.id_preguntas
+                    LEFT JOIN evaluaciones e
+                        ON e.id_evaluaciones = pe.id_evaluacion
+                    WHERE r.id_respuestas = %s;
+                """, (id_respuestas,))
 
-            return cursor.fetchone()
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener respuesta: {e}")
-            return None
+            print(f"Error al consultar respuesta: {e}")
+            raise
 
         finally:
             if conn:
@@ -110,44 +119,71 @@ class RespuestaRepository:
         conn = None
 
         try:
-            if not respuesta.usuario_id:
-                raise ValueError(
-                    "Se necesita el usuario que realiza la evaluación."
-                )
-
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO respuestas (
-                    pregunta_id,
-                    usuario_id,
-                    puntaje,
-                    comentario,
-                    estado
-                )
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING respuesta_id;
-            """, (
-                respuesta.pregunta_id,
-                respuesta.usuario_id,
-                respuesta.puntaje,
-                respuesta.comentario,
-                respuesta.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Comprobar que el usuario exista y esté activo.
+                cursor.execute("""
+                    SELECT id_usuario
+                    FROM usuarios
+                    WHERE id_usuario = %s
+                      AND estado = TRUE;
+                """, (respuesta.id_usuario,))
 
-            resultado = cursor.fetchone()
-            nuevo_id = resultado["respuesta_id"]
+                if cursor.fetchone() is None:
+                    raise ValueError(
+                        "El usuario no existe o está inactivo."
+                    )
 
-            conn.commit()
-            return nuevo_id
+                # Comprobar que la pregunta de la evaluación exista
+                # y que tanto la pregunta como la evaluación estén activas.
+                cursor.execute("""
+                    SELECT pe.id_pregunta_evaluacion
+                    FROM preguntas_evaluaciones pe
+                    JOIN preguntas p
+                        ON p.id_preguntas = pe.id_preguntas
+                    JOIN evaluaciones e
+                        ON e.id_evaluaciones = pe.id_evaluacion
+                    WHERE pe.id_pregunta_evaluacion = %s
+                      AND pe.estado = TRUE
+                      AND p.estado = TRUE
+                      AND e.estado = TRUE;
+                """, (respuesta.id_pregunta_evaluacion,))
+
+                if cursor.fetchone() is None:
+                    raise ValueError(
+                        "La pregunta de evaluación no existe o está inactiva."
+                    )
+
+                cursor.execute("""
+                    INSERT INTO respuestas (
+                        id_pregunta_evaluacion,
+                        id_usuario,
+                        puntaje,
+                        comentario,
+                        estado
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id_respuestas;
+                """, (
+                    respuesta.id_pregunta_evaluacion,
+                    respuesta.id_usuario,
+                    respuesta.puntaje,
+                    respuesta.comentario,
+                    respuesta.estado
+                ))
+
+                fila = cursor.fetchone()
+                conn.commit()
+
+                return fila["id_respuestas"]
 
         except Exception as e:
             if conn:
                 conn.rollback()
 
             print(f"Error al crear respuesta: {e}")
-            return None
+            raise
 
         finally:
             if conn:
@@ -162,7 +198,7 @@ class RespuestaRepository:
         conn = None
 
         try:
-            if not usuario_id or usuario_id <= 0:
+            if usuario_id <= 0:
                 raise ValueError("El usuario evaluador no es válido.")
 
             if len(respuestas) != 5:
@@ -170,163 +206,217 @@ class RespuestaRepository:
                     "La evaluación debe contener exactamente 5 respuestas."
                 )
 
-            pregunta_ids = [r.pregunta_id for r in respuestas]
+            ids_preguntas_evaluacion = [
+                r.id_pregunta_evaluacion for r in respuestas
+            ]
 
-            if len(set(pregunta_ids)) != 5:
+            if len(set(ids_preguntas_evaluacion)) != 5:
                 raise ValueError(
                     "Las cinco respuestas deben corresponder "
                     "a preguntas diferentes."
                 )
 
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            # Verificar que el usuario exista.
-            cursor.execute("""
-                SELECT usuario_id
-                FROM usuarios
-                WHERE usuario_id = %s
-                  AND estado = TRUE;
-            """, (usuario_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Validar al usuario.
+                cursor.execute("""
+                    SELECT id_usuario
+                    FROM usuarios
+                    WHERE id_usuario = %s
+                      AND estado = TRUE;
+                """, (usuario_id,))
 
-            if cursor.fetchone() is None:
-                raise ValueError(
-                    "El usuario no existe o está inactivo."
-                )
+                if cursor.fetchone() is None:
+                    raise ValueError(
+                        "El usuario no existe o está inactivo."
+                    )
 
-            # Verificar que las cinco preguntas existan y estén activas.
-            cursor.execute("""
-                SELECT pregunta_id
-                FROM preguntas
-                WHERE pregunta_id = ANY(%s)
-                  AND estado = TRUE;
-            """, (pregunta_ids,))
+                # Validar las cinco preguntas y verificar que pertenezcan
+                # a la misma evaluación.
+                cursor.execute("""
+                    SELECT
+                        pe.id_pregunta_evaluacion,
+                        pe.id_evaluacion
+                    FROM preguntas_evaluaciones pe
+                    JOIN preguntas p
+                        ON p.id_preguntas = pe.id_preguntas
+                    JOIN evaluaciones e
+                        ON e.id_evaluaciones = pe.id_evaluacion
+                    WHERE pe.id_pregunta_evaluacion = ANY(%s)
+                      AND pe.estado = TRUE
+                      AND p.estado = TRUE
+                      AND e.estado = TRUE;
+                """, (ids_preguntas_evaluacion,))
 
-            preguntas_validas = {
-                fila["pregunta_id"]
-                for fila in cursor.fetchall()
-            }
+                filas = cursor.fetchall()
 
-            if preguntas_validas != set(pregunta_ids):
-                raise ValueError(
-                    "Una o más preguntas no existen o están inactivas."
-                )
+                if len(filas) != 5:
+                    raise ValueError(
+                        "Una o más preguntas no existen o están inactivas."
+                    )
 
-            ids_creados = []
+                evaluacion_ids = {
+                    fila["id_evaluacion"] for fila in filas
+                }
 
-            for indice, respuesta in enumerate(respuestas):
-                # Guardar el comentario general una sola vez.
-                comentario_respuesta = (
-                    comentario.strip()[:500]
-                    if indice == 0
-                    and comentario
-                    and comentario.strip()
+                if len(evaluacion_ids) != 1:
+                    raise ValueError(
+                        "Las cinco preguntas deben pertenecer "
+                        "a la misma evaluación."
+                    )
+
+                ids_creados = []
+
+                # Guardar las cinco respuestas en una sola transacción.
+                # El comentario general se almacena una sola vez.
+                comentario_general = (
+                    comentario.strip()
+                    if comentario and comentario.strip()
                     else None
                 )
 
-                cursor.execute("""
-                    INSERT INTO respuestas (
-                        pregunta_id,
-                        usuario_id,
-                        puntaje,
-                        comentario,
-                        estado
+                for indice, respuesta in enumerate(respuestas):
+                    comentario_respuesta = (
+                        comentario_general if indice == 0 else None
                     )
-                    VALUES (%s, %s, %s, %s, %s)
-                    RETURNING respuesta_id;
-                """, (
-                    respuesta.pregunta_id,
-                    usuario_id,
-                    respuesta.puntaje,
-                    comentario_respuesta,
-                    respuesta.estado
-                ))
 
-                resultado = cursor.fetchone()
-                ids_creados.append(resultado["respuesta_id"])
+                    cursor.execute("""
+                        INSERT INTO respuestas (
+                            id_pregunta_evaluacion,
+                            id_usuario,
+                            puntaje,
+                            comentario,
+                            estado
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id_respuestas;
+                    """, (
+                        respuesta.id_pregunta_evaluacion,
+                        usuario_id,
+                        respuesta.puntaje,
+                        comentario_respuesta,
+                        respuesta.estado
+                    ))
 
-            # Confirmar las cinco respuestas en una transacción.
-            conn.commit()
+                    fila = cursor.fetchone()
+                    ids_creados.append(fila["id_respuestas"])
 
-            return ids_creados
+                conn.commit()
+                return ids_creados
 
         except Exception as e:
             if conn:
                 conn.rollback()
 
-            print(f"Error al crear respuestas por lote: {e}")
+            print(f"Error al registrar respuestas por lote: {e}")
             raise
 
         finally:
             if conn:
                 conn.close()
 
-    def eliminar(self, respuesta_id: int):
+    def actualizar(
+        self,
+        id_respuestas: int,
+        respuesta: Respuesta
+    ):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM respuestas
-                WHERE respuesta_id = %s
-                RETURNING respuesta_id;
-            """, (respuesta_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT id_usuario
+                    FROM usuarios
+                    WHERE id_usuario = %s
+                      AND estado = TRUE;
+                """, (respuesta.id_usuario,))
 
-            eliminado = cursor.fetchone()
+                if cursor.fetchone() is None:
+                    raise ValueError(
+                        "El usuario no existe o está inactivo."
+                    )
 
-            conn.commit()
-            return eliminado is not None
+                cursor.execute("""
+                    SELECT pe.id_pregunta_evaluacion
+                    FROM preguntas_evaluaciones pe
+                    JOIN preguntas p
+                        ON p.id_preguntas = pe.id_preguntas
+                    JOIN evaluaciones e
+                        ON e.id_evaluaciones = pe.id_evaluacion
+                    WHERE pe.id_pregunta_evaluacion = %s
+                      AND pe.estado = TRUE
+                      AND p.estado = TRUE
+                      AND e.estado = TRUE;
+                """, (respuesta.id_pregunta_evaluacion,))
 
-        except Exception as e:
-            if conn:
-                conn.rollback()
+                if cursor.fetchone() is None:
+                    raise ValueError(
+                        "La pregunta de evaluación no existe o está inactiva."
+                    )
 
-            print(f"Error al eliminar respuesta: {e}")
-            return False
+                cursor.execute("""
+                    UPDATE respuestas
+                    SET
+                        id_pregunta_evaluacion = %s,
+                        id_usuario = %s,
+                        puntaje = %s,
+                        comentario = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_respuestas = %s
+                    RETURNING id_respuestas;
+                """, (
+                    respuesta.id_pregunta_evaluacion,
+                    respuesta.id_usuario,
+                    respuesta.puntaje,
+                    respuesta.comentario,
+                    respuesta.estado,
+                    id_respuestas
+                ))
 
-        finally:
-            if conn:
-                conn.close()
+                fila = cursor.fetchone()
+                conn.commit()
 
-    def actualizar(self, respuesta_id: int, respuesta: Respuesta):
-        conn = None
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE respuestas
-                SET pregunta_id = %s,
-                    usuario_id = %s,
-                    puntaje = %s,
-                    comentario = %s,
-                    estado = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE respuesta_id = %s
-                RETURNING respuesta_id;
-            """, (
-                respuesta.pregunta_id,
-                respuesta.usuario_id,
-                respuesta.puntaje,
-                respuesta.comentario,
-                respuesta.estado,
-                respuesta_id
-            ))
-
-            actualizado = cursor.fetchone()
-
-            conn.commit()
-            return actualizado is not None
+                return fila is not None
 
         except Exception as e:
             if conn:
                 conn.rollback()
 
             print(f"Error al actualizar respuesta: {e}")
-            return False
+            raise
+
+        finally:
+            if conn:
+                conn.close()
+
+    def eliminar(self, id_respuestas: int):
+        conn = None
+
+        try:
+            conn = self.db.get_connection()
+
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM respuestas
+                    WHERE id_respuestas = %s
+                    RETURNING id_respuestas;
+                """, (id_respuestas,))
+
+                fila = cursor.fetchone()
+                conn.commit()
+
+                return fila is not None
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+
+            print(f"Error al eliminar respuesta: {e}")
+            raise
 
         finally:
             if conn:

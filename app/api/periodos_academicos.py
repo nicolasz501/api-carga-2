@@ -1,7 +1,10 @@
+
 from fastapi import APIRouter, HTTPException
 
 from app.models.PeriodoAcademico import PeriodoAcademico
-from app.repositories.periodo_academico_repository import PeriodoAcademicoRepository
+from app.repositories.periodo_academico_repository import (
+    PeriodoAcademicoRepository
+)
 
 
 router = APIRouter(
@@ -17,42 +20,50 @@ def listar_periodos():
     try:
         return repo.obtener_todos()
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error al obtener los períodos académicos: {str(e)}"
+            detail="Error al consultar los períodos académicos"
         )
 
 
 @router.get("/{periodo_id}")
 def obtener_periodo(periodo_id: int):
+    try:
+        periodo = repo.obtener_por_id(periodo_id)
 
-    periodo = repo.obtener_por_id(periodo_id)
+        if not periodo:
+            raise HTTPException(
+                status_code=404,
+                detail="Período académico no encontrado"
+            )
 
-    if not periodo:
-        raise HTTPException(
-            status_code=404,
-            detail="Período académico no encontrado"
-        )
+        return periodo
 
-    return periodo
-
-
-@router.post("/")
-def crear_periodo(periodo: PeriodoAcademico):
-
-    nuevo_id = repo.crear(periodo)
-
-    if not nuevo_id:
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail="No se pudo crear el período académico"
+            detail="Error al consultar el período académico"
         )
 
-    return {
-        "mensaje": "Período académico registrado exitosamente",
-        "periodo_id": nuevo_id
-    }
+
+@router.post("/", status_code=201)
+def crear_periodo(periodo: PeriodoAcademico):
+    try:
+        nuevo_id = repo.crear(periodo)
+
+        return {
+            "mensaje": "Período académico registrado exitosamente",
+            "id_periodos_academicos": nuevo_id
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo registrar el período académico"
+        )
 
 
 @router.put("/{periodo_id}")
@@ -60,36 +71,52 @@ def actualizar_periodo(
     periodo_id: int,
     periodo: PeriodoAcademico
 ):
+    try:
+        actualizado = repo.actualizar(periodo_id, periodo)
 
-    actualizado = repo.actualizar(
-        periodo_id,
-        periodo
-    )
+        if not actualizado:
+            raise HTTPException(
+                status_code=404,
+                detail="Período académico no encontrado"
+            )
 
-    if not actualizado:
+        return {
+            "mensaje": "Período académico actualizado correctamente",
+            "id_periodos_academicos": periodo_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(
-            status_code=404,
-            detail="Período académico no encontrado"
+            status_code=500,
+            detail="No se pudo actualizar el período académico"
         )
-
-    return {
-        "mensaje": "Período académico actualizado correctamente",
-        "periodo_id": periodo_id
-    }
 
 
 @router.delete("/{periodo_id}")
 def eliminar_periodo(periodo_id: int):
+    try:
+        eliminado = repo.eliminar(periodo_id)
 
-    eliminado = repo.eliminar(periodo_id)
+        if not eliminado:
+            raise HTTPException(
+                status_code=404,
+                detail="Período académico no encontrado"
+            )
 
-    if not eliminado:
+        return {
+            "mensaje": "Período académico eliminado correctamente",
+            "id_periodos_academicos": periodo_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(
-            status_code=404,
-            detail="Período académico no encontrado"
+            status_code=500,
+            detail=(
+                "No se pudo eliminar el período. "
+                "Verifica si tiene cargas docentes asociadas."
+            )
         )
-
-    return {
-        "mensaje": "Período académico eliminado correctamente",
-        "periodo_id": periodo_id
-    }

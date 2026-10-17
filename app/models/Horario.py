@@ -1,13 +1,17 @@
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import  time
+from datetime import time
 
 
 class Horario(BaseModel):
-    horario_id: Optional[int] = None
-    carga_id: int
-    dia_laborales: int
-    hora_inicio: time
+    id_horarios: Optional[int] = None
+    id_carga: int
+    dia_laborales: str
+    hora_iniciar: time
     hora_finalizar: time
     estado: bool = True
-   
+
+    @classmethod
+    def validar_horario(cls, valores):
+        return valores

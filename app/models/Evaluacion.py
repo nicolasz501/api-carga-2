@@ -1,15 +1,13 @@
+
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 
 class Evaluacion(BaseModel):
-    evaluacion_id: Optional[int] = None
-    carga_id: int
-    periodo_id: int
+    id_evaluaciones: Optional[int] = None
+    id_carga: int
     tipo_evaluacion: str
-    titulo: Optional[str] = None
+    titulo: str
     fecha_envio: Optional[datetime] = None
     estado: bool = True
-    
-    

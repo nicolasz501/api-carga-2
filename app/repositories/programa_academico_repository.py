@@ -1,3 +1,6 @@
+
+from psycopg2.extras import RealDictCursor
+
 from app.core.database import Database
 from app.models.ProgramaAcademico import ProgramaAcademico
 
@@ -8,145 +11,169 @@ class ProgramaAcademicoRepository:
         self.db = Database()
 
     def obtener_todos(self):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM programas_academicos
-                ORDER BY programa_id ASC;
-            """)
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_programas_academicos,
+                        id_facultades,
+                        nombre_programas,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM programas_academicos
+                    ORDER BY id_programas_academicos ASC;
+                """)
 
-            programas = cursor.fetchall()
-            conn.close()
-
-            return programas
+                return [dict(fila) for fila in cursor.fetchall()]
 
         except Exception as e:
-            print(f"Error al obtener programas: {e}")
-            return []
+            print(f"Error al listar programas académicos: {e}")
+            raise
 
-    def obtener_por_id(self, programa_id: int):
+        finally:
+            if conn:
+                conn.close()
+
+    def obtener_por_id(self, id_programas_academicos: int):
+        conn = None
+
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT *
-                FROM programas_academicos
-                WHERE programa_id = %s;
-            """, (programa_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id_programas_academicos,
+                        id_facultades,
+                        nombre_programas,
+                        estado,
+                        created_at,
+                        updated_at
+                    FROM programas_academicos
+                    WHERE id_programas_academicos = %s;
+                """, (id_programas_academicos,))
 
-            programa = cursor.fetchone()
-            conn.close()
-
-            return programa
+                fila = cursor.fetchone()
+                return dict(fila) if fila else None
 
         except Exception as e:
-            print(f"Error al obtener programa: {e}")
-            return None
+            print(f"Error al consultar programa académico: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()
 
     def crear(self, programa: ProgramaAcademico):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                INSERT INTO programas_academicos
-                (
-                    facultades_id,
-                    nombre_programa,
-                    estado
-                )
-                VALUES (%s, %s, %s)
-                RETURNING programa_id;
-            """, (
-                programa.facultades_id,
-                programa.nombre_programa,
-                programa.estado
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    INSERT INTO programas_academicos (
+                        id_facultades,
+                        nombre_programas,
+                        estado
+                    )
+                    VALUES (%s, %s, %s)
+                    RETURNING id_programas_academicos;
+                """, (
+                    programa.id_facultades,
+                    programa.nombre_programas,
+                    programa.estado
+                ))
 
-            nuevo_id = cursor.fetchone()["programa_id"]
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return nuevo_id
+                return fila["id_programas_academicos"]
 
         except Exception as e:
-            print(f"Error al crear programa: {e}")
-
             if conn:
                 conn.rollback()
+
+            print(f"Error al crear programa académico: {e}")
+            raise
+
+        finally:
+            if conn:
                 conn.close()
 
-            return None
-
-    def eliminar(self, programa_id: int):
+    def actualizar(
+        self,
+        id_programas_academicos: int,
+        programa: ProgramaAcademico
+    ):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                DELETE FROM programas_academicos
-                WHERE programa_id = %s
-                RETURNING programa_id;
-            """, (programa_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    UPDATE programas_academicos
+                    SET
+                        id_facultades = %s,
+                        nombre_programas = %s,
+                        estado = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_programas_academicos = %s
+                    RETURNING id_programas_academicos;
+                """, (
+                    programa.id_facultades,
+                    programa.nombre_programas,
+                    programa.estado,
+                    id_programas_academicos
+                ))
 
-            eliminado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return eliminado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al eliminar programa: {e}")
-
             if conn:
                 conn.rollback()
+
+            print(f"Error al actualizar programa académico: {e}")
+            raise
+
+        finally:
+            if conn:
                 conn.close()
 
-            return False
-
-    def actualizar(self, programa_id: int, programa: ProgramaAcademico):
+    def eliminar(self, id_programas_academicos: int):
         conn = None
 
         try:
             conn = self.db.get_connection()
-            cursor = conn.cursor()
 
-            cursor.execute("""
-                UPDATE programas_academicos
-                SET facultades_id = %s,
-                    nombre_programa = %s,
-                    estado = %s
-                WHERE programa_id = %s
-                RETURNING programa_id;
-            """, (
-                programa.facultades_id,
-                programa.nombre_programa,
-                programa.estado,
-                programa_id
-            ))
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    DELETE FROM programas_academicos
+                    WHERE id_programas_academicos = %s
+                    RETURNING id_programas_academicos;
+                """, (id_programas_academicos,))
 
-            actualizado = cursor.fetchone()
+                fila = cursor.fetchone()
+                conn.commit()
 
-            conn.commit()
-            conn.close()
-
-            return actualizado is not None
+                return fila is not None
 
         except Exception as e:
-            print(f"Error al actualizar programa: {e}")
-
             if conn:
                 conn.rollback()
-                conn.close()
 
-            return False
+            print(f"Error al eliminar programa académico: {e}")
+            raise
+
+        finally:
+            if conn:
+                conn.close()
