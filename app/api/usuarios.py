@@ -112,3 +112,4 @@ def eliminar_usuario(usuario_id: int):
         )
 
     return {"mensaje": "Usuario eliminado correctamente"}
+
