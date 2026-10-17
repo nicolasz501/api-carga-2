@@ -1,6 +1,6 @@
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 
 from app.models.Usuario import Usuario
@@ -16,7 +16,7 @@ repo = UsuarioRepository()
 
 
 class LoginRequest(BaseModel):
-    correo: EmailStr
+    correo: str
     password: str
 
 
@@ -26,7 +26,7 @@ class UsuarioUpdate(BaseModel):
     segundo_nombre: Optional[str] = None
     primer_apellido: str
     segundo_apellido: Optional[str] = None
-    correo: EmailStr
+    correo: str
     numero_documento: str
     estado: bool = True
     contrasena: Optional[str] = None
@@ -112,4 +112,3 @@ def eliminar_usuario(usuario_id: int):
         )
 
     return {"mensaje": "Usuario eliminado correctamente"}
-
