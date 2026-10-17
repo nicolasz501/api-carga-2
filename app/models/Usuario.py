@@ -1,6 +1,6 @@
 
 from typing import Optional
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 
 class Usuario(BaseModel):
@@ -14,7 +14,7 @@ class Usuario(BaseModel):
     primer_apellido: str
     segundo_apellido: Optional[str] = None
 
-    correo: EmailStr
+    correo: str
     contrasena: str
     numero_documento: str
     estado: bool = True

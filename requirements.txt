@@ -4,4 +4,4 @@ uvicorn
 psycopg2-binary
 python-dotenv
 bcrypt
-email-validator
+
