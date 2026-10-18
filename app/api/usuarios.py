@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from app.models.Usuario import Usuario
+from app.models.Usuario import UsuarioResponse as Usuario
 from app.repositories.usuario_repository import UsuarioRepository
 
 
