@@ -22,7 +22,6 @@ from app.api import (
     respuestas,
 )
 
-
 app = FastAPI(
     title="API Carga docente",
     description=(
@@ -32,7 +31,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
 # --------------------------------------------------
 # CONFIGURACIÓN CORS
 # --------------------------------------------------
@@ -40,6 +38,8 @@ app = FastAPI(
 ALLOWED_ORIGINS_DEFAULT = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "http://localhost:3000",
@@ -54,18 +54,15 @@ extra_origins = [
     if origin.strip()
 ]
 
-origins = list(
-    dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins)
-)
+origins = list(dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # --------------------------------------------------
 # REGISTRO DE RUTAS
@@ -86,7 +83,6 @@ app.include_router(evaluaciones.router)
 app.include_router(preguntas.router)
 app.include_router(pregunta_evaluacion.router)
 app.include_router(respuestas.router)
-
 
 # --------------------------------------------------
 # COMPROBACIÓN DE ESTADO
