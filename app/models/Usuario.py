@@ -12,6 +12,3 @@ class UsuarioResponse(BaseModel):
     titulo_academico: Optional[str] = None 
     id_rol: int
     estado: bool
-
-    class Config:
-        from_attributes = True 
