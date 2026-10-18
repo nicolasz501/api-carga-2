@@ -1,11 +1,17 @@
-
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
-from app.models.Usuario import UsuarioResponse as Usuario
+# Importación segura compatible con cualquier estructura de modelos
+try:
+    from app.models.Usuario import UsuarioResponse as Usuario
+except ImportError:
+    try:
+        from app.models.Usuario import Usuario
+    except ImportError:
+        from app.models.usuario import Usuario
+
 from app.repositories.usuario_repository import UsuarioRepository
-
 
 router = APIRouter(
     prefix="/usuarios",
@@ -28,6 +34,7 @@ class UsuarioUpdate(BaseModel):
     segundo_apellido: Optional[str] = None
     correo: str
     numero_documento: str
+    titulo_academico: Optional[str] = None  # Agregado para soportar título académico
     estado: bool = True
     contrasena: Optional[str] = None
 

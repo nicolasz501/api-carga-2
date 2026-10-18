@@ -1,8 +1,9 @@
 # app/models/Usuario.py
-from pydantic import BaseModel
 from typing import Optional
+from pydantic import BaseModel
 
-class Usuario(BaseModel):
+
+class UsuarioResponse(BaseModel):
     id_usuario: Optional[int] = None
     primer_nombre: str
     segundo_nombre: Optional[str] = None
@@ -13,3 +14,10 @@ class Usuario(BaseModel):
     titulo_academico: Optional[str] = None
     id_rol: int
     estado: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+# Alias para evitar errores si en alguna parte se importa como Usuario
+Usuario = UsuarioResponse
