@@ -26,8 +26,6 @@ class UsuarioRepository:
 
     # --------------------------------------------------
     # VERIFICAR CONTRASEÑA
-    # BCrypt para hashes válidos y compatibilidad temporal
-    # con registros antiguos almacenados como texto plano.
     # --------------------------------------------------
     @staticmethod
     def verificar_contrasena(
@@ -40,7 +38,6 @@ class UsuarioRepository:
 
         guardada = str(contrasena_guardada)
 
-        # Detectar hashes BCrypt.
         if guardada.startswith(("$2a$", "$2b$", "$2y$")):
             try:
                 return bcrypt.checkpw(
@@ -79,7 +76,6 @@ class UsuarioRepository:
                 """)
 
                 return cursor.fetchall()
-
         finally:
             conn.close()
 
@@ -109,13 +105,11 @@ class UsuarioRepository:
                 """, (usuario_id,))
 
                 return cursor.fetchone()
-
         finally:
             conn.close()
 
     # --------------------------------------------------
     # CREAR USUARIO
-    # Guarda contraseñas nuevas con BCrypt.
     # --------------------------------------------------
     def crear(self, usuario: Usuario):
         conn = self.db.get_connection()
@@ -175,119 +169,120 @@ class UsuarioRepository:
     # --------------------------------------------------
     # INICIAR SESIÓN
     # --------------------------------------------------
-    
-def login(self, correo: str, password: str):
-    conn = self.db.get_connection()
+    def login(self, correo: str, password: str):
+        conn = self.db.get_connection()
 
-    try:
-        with conn.cursor() as cursor:
-            # Buscar usuario y comprobar su rol
-            cursor.execute("""
-                SELECT
-                    u.id_usuario,
-                    u.id_rol,
-                    u.primer_nombre,
-                    u.segundo_nombre,
-                    u.primer_apellido,
-                    u.segundo_apellido,
-                    u.correo,
-                    u.contrasena,
-                    u.numero_documento,
-                    u.estado,
-                    r.id_roles,
-                    r.nombre_rol
-                FROM usuarios AS u
-                INNER JOIN roles AS r
-                    ON r.id_roles = u.id_rol
-                WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
-                  AND u.estado = TRUE
-                  AND r.estado = TRUE;
-            """, (correo,))
+        try:
+            with conn.cursor() as cursor:
+                # Buscar usuario activo y rol activo.
+                cursor.execute("""
+                    SELECT
+                        u.id_usuario,
+                        u.id_rol,
+                        u.primer_nombre,
+                        u.segundo_nombre,
+                        u.primer_apellido,
+                        u.segundo_apellido,
+                        u.correo,
+                        u.contrasena,
+                        u.numero_documento,
+                        u.estado,
+                        r.id_roles,
+                        r.nombre_rol
+                    FROM usuarios AS u
+                    INNER JOIN roles AS r
+                        ON r.id_roles = u.id_rol
+                    WHERE LOWER(TRIM(u.correo)) =
+                          LOWER(TRIM(%s))
+                      AND u.estado = TRUE
+                      AND r.estado = TRUE;
+                """, (correo,))
 
-            usuario = cursor.fetchone()
+                usuario = cursor.fetchone()
 
-            if not usuario:
-                return None
+                if not usuario:
+                    return None
 
-            if not self.verificar_contrasena(
-                password,
-                usuario["contrasena"]
-            ):
-                return None
+                if not self.verificar_contrasena(
+                    password,
+                    usuario["contrasena"]
+                ):
+                    return None
 
-            # Obtener módulos activos y permisos del rol.
-            # CORRECCIÓN: no filtrar por mr.estado,
-            # porque esa columna no existe en tu tabla.
-            cursor.execute("""
-                SELECT
-                    m.id_modulos,
-                    m.nombre_modulos,
-                    mr.puede_ver,
-                    mr.puede_crear,
-                    mr.puede_editar,
-                    mr.puede_eliminar
-                FROM modulos_rol AS mr
-                INNER JOIN modulos AS m
-                    ON m.id_modulos = mr.id_modulos
-                WHERE mr.id_rol = %s
-                  AND m.estado = TRUE
-                ORDER BY m.id_modulos ASC;
-            """, (usuario["id_rol"],))
+                # Obtener los módulos y permisos del rol.
+                # modulos_rol no tiene columna estado.
+                cursor.execute("""
+                    SELECT
+                        m.id_modulos,
+                        m.nombre_modulos,
+                        mr.puede_ver,
+                        mr.puede_crear,
+                        mr.puede_editar,
+                        mr.puede_eliminar
+                    FROM modulos_rol AS mr
+                    INNER JOIN modulos AS m
+                        ON m.id_modulos = mr.id_modulos
+                    WHERE mr.id_rol = %s
+                      AND m.estado = TRUE
+                    ORDER BY m.id_modulos ASC;
+                """, (usuario["id_rol"],))
 
-            registros_modulos = cursor.fetchall()
+                registros_modulos = cursor.fetchall()
 
-            lista_modulos = [
-                {
-                    "id": modulo["id_modulos"],
-                    "nombre": modulo["nombre_modulos"],
-                    "puede_ver": modulo["puede_ver"],
-                    "puede_crear": modulo["puede_crear"],
-                    "puede_editar": modulo["puede_editar"],
-                    "puede_eliminar": modulo["puede_eliminar"],
+                lista_modulos = [
+                    {
+                        "id": modulo["id_modulos"],
+                        "nombre": modulo["nombre_modulos"],
+                        "puede_ver": modulo["puede_ver"],
+                        "puede_crear": modulo["puede_crear"],
+                        "puede_editar": modulo["puede_editar"],
+                        "puede_eliminar": modulo["puede_eliminar"],
+                    }
+                    for modulo in registros_modulos
+                ]
+
+                return {
+                    "usuario": {
+                        "usuario_id": usuario["id_usuario"],
+                        "id_usuario": usuario["id_usuario"],
+                        "rol_id": usuario["id_rol"],
+                        "id_rol": usuario["id_rol"],
+                        "primer_nombre": usuario["primer_nombre"],
+                        "segundo_nombre": usuario["segundo_nombre"],
+                        "primer_apellido": usuario["primer_apellido"],
+                        "segundo_apellido": usuario["segundo_apellido"],
+                        "correo": usuario["correo"],
+                        "numero_documento": usuario["numero_documento"],
+                        "estado": usuario["estado"],
+                    },
+                    "rol": {
+                        "rol_id": usuario["id_roles"],
+                        "id_roles": usuario["id_roles"],
+                        "nombre": usuario["nombre_rol"],
+                    },
+                    "modulos": lista_modulos,
                 }
-                for modulo in registros_modulos
-            ]
 
-            return {
-                "usuario": {
-                    "usuario_id": usuario["id_usuario"],
-                    "id_usuario": usuario["id_usuario"],
-                    "rol_id": usuario["id_rol"],
-                    "id_rol": usuario["id_rol"],
-                    "primer_nombre": usuario["primer_nombre"],
-                    "segundo_nombre": usuario["segundo_nombre"],
-                    "primer_apellido": usuario["primer_apellido"],
-                    "segundo_apellido": usuario["segundo_apellido"],
-                    "correo": usuario["correo"],
-                    "numero_documento": usuario["numero_documento"],
-                    "estado": usuario["estado"],
-                },
-                "rol": {
-                    "rol_id": usuario["id_roles"],
-                    "id_roles": usuario["id_roles"],
-                    "nombre": usuario["nombre_rol"],
-                },
-                "modulos": lista_modulos,
-            }
-
-    finally:
-        conn.close()
-
+        finally:
+            conn.close()
 
     # --------------------------------------------------
     # ACTUALIZAR USUARIO
-    # Conserva la contraseña si no se envía una nueva.
     # --------------------------------------------------
     def actualizar(self, usuario_id: int, usuario):
         conn = self.db.get_connection()
 
         try:
             password_hash = None
-            contrasena_nueva = getattr(usuario, "contrasena", None)
+            contrasena_nueva = getattr(
+                usuario, "contrasena", None
+            )
 
             if contrasena_nueva is not None:
                 if contrasena_nueva.strip():
-                    password_hash = self.generar_hash(contrasena_nueva)
+                    password_hash = self.generar_hash(
+                        contrasena_nueva
+                    )
 
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -362,7 +357,8 @@ def login(self, correo: str, password: str):
         except ForeignKeyViolation:
             conn.rollback()
             raise ValueError(
-                "No se puede eliminar el usuario porque tiene registros asociados"
+                "No se puede eliminar el usuario porque "
+                "tiene registros asociados"
             )
 
         except Exception:
