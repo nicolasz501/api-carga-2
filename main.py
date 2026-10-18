@@ -22,6 +22,10 @@ from app.api import (
     respuestas,
 )
 
+# --------------------------------------------------
+# CREACIÓN DE LA API
+# --------------------------------------------------
+
 app = FastAPI(
     title="API Carga docente",
     description=(
@@ -54,15 +58,9 @@ extra_origins = [
     if origin.strip()
 ]
 
-origins = list(dict.fromkeys(ALLOWED_ORIGINS_DEFAULT + extra_origins))
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+origins = list(dict.fromkeys(
+    ALLOWED_ORIGINS_DEFAULT + extra_origins
+))
 
 # --------------------------------------------------
 # REGISTRO DE RUTAS
@@ -93,5 +91,18 @@ def estado_api():
     return {
         "status": "ok",
         "mensaje": "La API de monitoreo se encuentra en línea y funcional",
-        "version": app.version,
+        "version": "1.0.0",
     }
+
+# --------------------------------------------------
+# CORS GLOBAL
+# Se aplica como envoltura de toda la aplicación.
+# --------------------------------------------------
+
+app = CORSMiddleware(
+    app=app,
+    allow_origins=origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
