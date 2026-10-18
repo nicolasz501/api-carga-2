@@ -175,101 +175,104 @@ class UsuarioRepository:
     # --------------------------------------------------
     # INICIAR SESIÓN
     # --------------------------------------------------
-    def login(self, correo: str, password: str):
-        conn = self.db.get_connection()
+    
+def login(self, correo: str, password: str):
+    conn = self.db.get_connection()
 
-        try:
-            with conn.cursor() as cursor:
-                # Buscar usuario y rol activos.
-                cursor.execute("""
-                    SELECT
-                        u.id_usuario,
-                        u.id_rol,
-                        u.primer_nombre,
-                        u.segundo_nombre,
-                        u.primer_apellido,
-                        u.segundo_apellido,
-                        u.correo,
-                        u.contrasena,
-                        u.numero_documento,
-                        u.estado,
-                        r.id_roles,
-                        r.nombre_rol
-                    FROM usuarios AS u
-                    INNER JOIN roles AS r
-                        ON r.id_roles = u.id_rol
-                    WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
-                      AND u.estado = TRUE
-                      AND r.estado = TRUE;
-                """, (correo,))
+    try:
+        with conn.cursor() as cursor:
+            # Buscar usuario y comprobar su rol
+            cursor.execute("""
+                SELECT
+                    u.id_usuario,
+                    u.id_rol,
+                    u.primer_nombre,
+                    u.segundo_nombre,
+                    u.primer_apellido,
+                    u.segundo_apellido,
+                    u.correo,
+                    u.contrasena,
+                    u.numero_documento,
+                    u.estado,
+                    r.id_roles,
+                    r.nombre_rol
+                FROM usuarios AS u
+                INNER JOIN roles AS r
+                    ON r.id_roles = u.id_rol
+                WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
+                  AND u.estado = TRUE
+                  AND r.estado = TRUE;
+            """, (correo,))
 
-                usuario = cursor.fetchone()
+            usuario = cursor.fetchone()
 
-                if not usuario:
-                    return None
+            if not usuario:
+                return None
 
-                if not self.verificar_contrasena(
-                    password,
-                    usuario["contrasena"]
-                ):
-                    return None
+            if not self.verificar_contrasena(
+                password,
+                usuario["contrasena"]
+            ):
+                return None
 
-                # Obtener módulos y permisos del rol.
-                cursor.execute("""
-                    SELECT
-                        m.id_modulos,
-                        m.nombre_modulos,
-                        mr.puede_ver,
-                        mr.puede_crear,
-                        mr.puede_editar,
-                        mr.puede_eliminar
-                    FROM modulos_rol AS mr
-                    INNER JOIN modulos AS m
-                        ON m.id_modulos = mr.id_modulos
-                    WHERE mr.id_rol = %s
-                      AND mr.estado = TRUE
-                      AND m.estado = TRUE
-                    ORDER BY m.id_modulos ASC;
-                """, (usuario["id_rol"],))
+            # Obtener módulos activos y permisos del rol.
+            # CORRECCIÓN: no filtrar por mr.estado,
+            # porque esa columna no existe en tu tabla.
+            cursor.execute("""
+                SELECT
+                    m.id_modulos,
+                    m.nombre_modulos,
+                    mr.puede_ver,
+                    mr.puede_crear,
+                    mr.puede_editar,
+                    mr.puede_eliminar
+                FROM modulos_rol AS mr
+                INNER JOIN modulos AS m
+                    ON m.id_modulos = mr.id_modulos
+                WHERE mr.id_rol = %s
+                  AND m.estado = TRUE
+                ORDER BY m.id_modulos ASC;
+            """, (usuario["id_rol"],))
 
-                registros_modulos = cursor.fetchall()
+            registros_modulos = cursor.fetchall()
 
-                lista_modulos = [
-                    {
-                        "id": modulo["id_modulos"],
-                        "nombre": modulo["nombre_modulos"],
-                        "puede_ver": modulo["puede_ver"],
-                        "puede_crear": modulo["puede_crear"],
-                        "puede_editar": modulo["puede_editar"],
-                        "puede_eliminar": modulo["puede_eliminar"]
-                    }
-                    for modulo in registros_modulos
-                ]
-
-                return {
-                    "usuario": {
-                        "usuario_id": usuario["id_usuario"],
-                        "id_usuario": usuario["id_usuario"],
-                        "rol_id": usuario["id_rol"],
-                        "id_rol": usuario["id_rol"],
-                        "primer_nombre": usuario["primer_nombre"],
-                        "segundo_nombre": usuario["segundo_nombre"],
-                        "primer_apellido": usuario["primer_apellido"],
-                        "segundo_apellido": usuario["segundo_apellido"],
-                        "correo": usuario["correo"],
-                        "numero_documento": usuario["numero_documento"],
-                        "estado": usuario["estado"]
-                    },
-                    "rol": {
-                        "rol_id": usuario["id_roles"],
-                        "id_roles": usuario["id_roles"],
-                        "nombre": usuario["nombre_rol"]
-                    },
-                    "modulos": lista_modulos
+            lista_modulos = [
+                {
+                    "id": modulo["id_modulos"],
+                    "nombre": modulo["nombre_modulos"],
+                    "puede_ver": modulo["puede_ver"],
+                    "puede_crear": modulo["puede_crear"],
+                    "puede_editar": modulo["puede_editar"],
+                    "puede_eliminar": modulo["puede_eliminar"],
                 }
+                for modulo in registros_modulos
+            ]
 
-        finally:
-            conn.close()
+            return {
+                "usuario": {
+                    "usuario_id": usuario["id_usuario"],
+                    "id_usuario": usuario["id_usuario"],
+                    "rol_id": usuario["id_rol"],
+                    "id_rol": usuario["id_rol"],
+                    "primer_nombre": usuario["primer_nombre"],
+                    "segundo_nombre": usuario["segundo_nombre"],
+                    "primer_apellido": usuario["primer_apellido"],
+                    "segundo_apellido": usuario["segundo_apellido"],
+                    "correo": usuario["correo"],
+                    "numero_documento": usuario["numero_documento"],
+                    "estado": usuario["estado"],
+                },
+                "rol": {
+                    "rol_id": usuario["id_roles"],
+                    "id_roles": usuario["id_roles"],
+                    "nombre": usuario["nombre_rol"],
+                },
+                "modulos": lista_modulos,
+            }
+
+    finally:
+        conn.close()
+
 
     # --------------------------------------------------
     # ACTUALIZAR USUARIO
