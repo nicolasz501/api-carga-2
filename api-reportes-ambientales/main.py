@@ -31,20 +31,18 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "https://cargadocente.netlify.app",
     ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 def inicio():
     return {
+        "status": "ok",
         "mensaje": "API de reportes ambientales funcionando",
         "documentacion": "/docs",
     }
-
 
 app.include_router(roles_router, prefix="/api")
 app.include_router(usuarios_router, prefix="/api")
